@@ -1,6 +1,4 @@
-/**
-  Programa para intentar automatizar el cálcuo de secuentes.
-*/
+/** Programa para el cálcuo de secuentes. **/
 
 % 1150 es el "código" de prolog para poder definir las funciones que queremos.
 :- op(1150,xfy,or). % Definimos la disyunción como operación binaria y la llamaremos con "or".
@@ -11,12 +9,14 @@
 
 
 /**
-  dnf representa una forma normal en la lógica. La llamamos forma normal disyuntiva negada.
+  dnf representa una forma normal en la lógica. La llamamos forma normal disyuntiva.
   Lo que quiere decir con esto es que al devoler un resultado este no contará con -> ni <->, sino
   que vendrá en función de ¬ (neg) y V (or) ayudandonos de las equivalencias.
 */
 
-            /****** DNF (Forma normal Disyuntiva Negada) ******/
+
+            /****** DNF (Forma normal Disyuntiva) ******/
+
 
 % A,B,C son fórmulas de la lógica.
 
@@ -26,13 +26,17 @@ dnf(A,A) :- atom(A).
 dnf(neg A,neg C) :- dnf(A,C).
 % Si la dnf de A es C y la dnf de B es D, entonces la dnf de A o B será C o D, respectivamente.
 dnf(A or B,C or D) :- dnf(A,C),dnf(B,D).
-/** Si la dnf de A es C y la dnf de B es D, entonces la dnf de  A y B "(A ∧ B)" será
+/**
+  Si la dnf de A es C y la dnf de B es D, entonces la dnf de  A y B "(A ∧ B)" será
   la negación de, la negación de C o la negación de D "¬(¬C v ¬D)". Como podemos ver
-  ésta es una equivalencia lógica, ya que: (φ ∧ ψ) ≡ ¬(¬φ ∨ ¬ψ) */
+  ésta es una equivalencia lógica, ya que: (φ ∧ ψ) ≡ ¬(¬φ ∨ ¬ψ)
+*/
 dnf(A and B,neg((neg C) or (neg D))) :- dnf(A,C),dnf(B,D).
-/** Si la dnf de A es C y la dnf de B es D, entonces la dnf de A implica B (A → B)
+/**
+  Si la dnf de A es C y la dnf de B es D, entonces la dnf de A implica B (A → B)
   será la negación de C o D (¬ C v D). Notemos que ésta también es una equivalencia lógica
-  ya que: (φ → ψ) ≡ (¬φ ∨ ψ) */
+  ya que: (φ → ψ) ≡ (¬φ ∨ ψ)
+*/
 dnf(A impl B,(neg C) or D) :- dnf(A,C),dnf(B,D).
 % Si la dnf de A syss B "(A ↔ B)" es C entonces la dnf de ((A → B) ∧ (B → A)) será C
 dnf(A iff B,C) :- dnf((A impl B) and (B impl A),C).
@@ -46,29 +50,45 @@ dnf(A iff B,C) :- dnf((A impl B) and (B impl A),C).
 
 % la dnf de la lista vacía es la lista vacía.
 dnfL([],[]).
-/** Si la dnf de F es G, entonces la dnf de cada elemento del resto de la lista donde
+/**
+  Si la dnf de F es G, entonces la dnf de cada elemento del resto de la lista donde
   se encuentra F será cada elemento del resto de la lista donde se encuentra G.
-  Es decir, si la dnf de F es G, entonces la dnf de F_1 será G_1, ..., la dnf de F_n será G_n. */
+  Es decir, si la dnf de F es G, entonces la dnf de F_1 será G_1, ..., la dnf de F_n será G_n.
+*/
 dnfL([F|Fs],[G|Gs]) :- dnf(F,G),dnfL(Fs,Gs).
+
 
 
             /****  CÁCULO DE SECUENTES  ****/
 
-% I's,D's,F's son fórmulas de la lógica
 
-/** El predicado intersection(S1,S2,S3) es verdadero si S3 se unifica con la intersección
+% I's,D's,F's son fórmulas de la lógica o listas de fórmulas.
+
+% Cada vez que mencionemos que B es el sc de A, lo relacionaremos con A ⊢ B.
+
+/**
+  El predicado intersection(S1,S2,S3) es verdadero si S3 se unifica con la intersección
   de S1 y S2.
-  Si la intersección de I y D no es vacía, es decir, si existe un unificador para I y D,
-  entonces D será en cálcuo de secuentes de I. */
+  Si la intersección de I y D no es vacía "Si (vars(I) ∩ vars(D)) ≠ ∅, entonces I ⊢ D",
+  es decir, si existe un unificador para I y D, entonces D será en cálcuo de secuentes (se infiere)
+  de I.
+*/
 sc(I,D) :- not(intersection(I,D,[])).
+%  Si de I se infieren "⊢" F,D, entonces de I u {¬ F} ⊢ D.      -- I u {¬ F} = {I, ¬F}
 sc([(neg F)|I],D) :- sc_aux(I,[F|D]).
+% Si de F,I ⊢ D entonces de I ⊢ {¬ F} u D.
 sc(I,[(neg F)|D]) :- sc_aux([F|I],D).
+% Si D1 = {F1, F2, D} y si I ⊢ D1, entonces I ⊢ {(F1 v F2), D}
 sc(I,[(F1 or F2)|D]) :- union([F1,F2],D,D1),sc_aux(I,D1).
+% Si de {F1, I} ⊢ D y de {F2, I} ⊢ D, entonces {(F1 v F2), I} ⊢ D.
+% Notemos que con que cumpla uno, este será válido, pero puede cumplir las dos.
 sc([(F1 or F2)|I],D) :- sc_aux([F1|I],D),sc_aux([F2|I],D).
 
 
-/** Usaremos sc_aux para poder hacer las llamdas recursivas.
-  El predicado permutation(X,Y) es verdadero cuando X es una permutaci+on de Y.
+/**
+  Usaremos sc_aux para poder hacer las llamdas recursivas.
+  El predicado permutation(X,Y) es verdadero cuando X es una permutación de Y. "permutation(?Xs, ?Ys)
+                                                                                True when Xs is a permutation of Ys"
   Si I es una permutación de I1 y D es una permutación de D1, entonces D1 es el cálculo
   de secuentes de I1, si todo esto es verdadero, entonces D será el cálculo de secuentes de I.
   Es decir, si en cada permutación (a la par) D1 es el sc de I1, entonces finalmente D será el sc de I.
