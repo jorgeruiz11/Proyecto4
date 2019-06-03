@@ -62,7 +62,8 @@ dnfL([F|Fs],[G|Gs]) :- dnf(F,G),dnfL(Fs,Gs).
             /****  CÁCULO DE SECUENTES  ****/
 
 
-% I's,D's,F's son fórmulas de la lógica o listas de fórmulas.
+% I's,D's son fórmulas de la lógica o listas de fórmulas y las F's son fórmulas.
+% El predicado union(x1,x2,x3) es verdadero si x3 es la union de x1 y x2.
 
 % Cada vez que mencionemos que B es el sc de A, lo relacionaremos con A ⊢ B.
 
@@ -71,19 +72,32 @@ dnfL([F|Fs],[G|Gs]) :- dnf(F,G),dnfL(Fs,Gs).
   de S1 y S2.
   Si la intersección de I y D no es vacía "Si (vars(I) ∩ vars(D)) ≠ ∅, entonces I ⊢ D",
   es decir, si existe un unificador para I y D, entonces D será en cálcuo de secuentes (se infiere)
-  de I.
-*/
+  de I. */
+% □ | Γ,φ ⊢ φ∆   Regla (Hip)
 sc(I,D) :- not(intersection(I,D,[])).
-%  Si de I se infieren "⊢" F,D, entonces de I u {¬ F} ⊢ D.      -- I u {¬ F} = {I, ¬F}
+%  Si de I se infieren "⊢" F,D, entonces de {I, ¬ F} ⊢ D.      -- I u {¬ F} = {I, ¬F}
+% Γ ⊢ φ,∆ | Γ,¬φ ⊢ ∆   Regla (¬ I)
 sc([(neg F)|I],D) :- sc_aux(I,[F|D]).
 % Si de F,I ⊢ D entonces de I ⊢ {¬ F} u D.
+% Γ,φ ⊢ ∆ | Γ ⊢ ¬φ,∆   Regla (¬ D)
 sc(I,[(neg F)|D]) :- sc_aux([F|I],D).
 % Si D1 = {F1, F2, D} y si I ⊢ D1, entonces I ⊢ {(F1 v F2), D}
+% Γ ⊢ φ,ψ,∆ | Γ ⊢ φ∨ψ,∆   Regla (∨ D)
 sc(I,[(F1 or F2)|D]) :- union([F1,F2],D,D1),sc_aux(I,D1).
 % Si de {F1, I} ⊢ D y de {F2, I} ⊢ D, entonces {(F1 v F2), I} ⊢ D.
 % Notemos que con que cumpla uno, este será válido, pero puede cumplir las dos.
+% Γ,φ ⊢ ∆   Γ,ψ ⊢ ∆ | Γ,φ∨ψ ⊢ ∆   Regla (∨ I)
 sc([(F1 or F2)|I],D) :- sc_aux([F1|I],D),sc_aux([F2|I],D).
-
+                  /**       Punto extra       **/
+    /**   Implementación de los conectivos conjunción e implicación   **/
+% Γ ⊢ φ,∆  Γ ⊢ ψ,∆ | Γ ⊢ φ∧ψ,∆   Regla (∧ D)
+sc(I,[(F1 and F2)|D]) :- sc_aux(I,[F1|D]), sc_aux(I,[F2|D]).
+% Γ,φ,ψ ⊢ ∆ | Γ,φ∧ψ ⊢ ∆   Regla (∧ I)
+sc([(F1 and F2)|I],D) :- union([F1,F2],I,I1),sc_aux(I1,D).
+% Γ,φ ⊢ ψ,∆ | Γ ⊢ φ→ψ,∆   Regla (→ D)
+sc(I,[(F1 impl F2)|D]) :- sc_aux([F1,I],[F2,D]).
+% Γ ⊢ φ,∆   Γ,ψ ⊢ ∆ | Γ,φ→ψ ⊢ ∆   Regla (→ I)
+sc([(F1 impl F2)|I],D) :- sc_aux(I,[F1|D]),sc_aux([F2,I],D).
 
 /**
   Usaremos sc_aux para poder hacer las llamdas recursivas.
